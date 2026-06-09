@@ -1,0 +1,16 @@
+{
+  "name": "@bleed-believer/ssrs",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "watch": "bleed build --config ./tsconfig.build.json --watch",
+    "build": "bleed build --config ./tsconfig.build.json",
+    "start": "bleed start ./src/index.ts --",
+    "test":  "node --import @bleed-believer/cli --test --"
+  },
+  "devDependencies": {
+    "@bleed-believer/cli": "^1.0.2",
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3"
+  }
+}
