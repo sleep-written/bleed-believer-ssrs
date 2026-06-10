@@ -1,5 +1,4 @@
-import type { SSRSProtocol, SSRSReport, SSRSFormat } from './interfaces/index.js';
-import type { QueryStringValue } from '../report-url/index.js';
+import type { SSRSProtocol, SSRSReport, SSRSFormat, SSRSReportParams } from './interfaces/index.js';
 
 import { ssrsFormat } from './ssrs-format.js';
 import { ReportURL } from '../report-url/index.js';
@@ -19,14 +18,18 @@ export class SSRS {
     async renderReport(
         path: string,
         format: SSRSFormat,
-        params?: Record<string, QueryStringValue>
+        params?: SSRSReportParams
     ): Promise<SSRSReport> {
         const url = new ReportURL(this.#baseUrl);
         url.queryString.set(path, null);
         url.queryString.set('rs:format', format);
 
         for (const [ key, value ] of Object.entries(params ?? {})) {
-            url.queryString.set(key, value);
+            const [ base, ...tail ] = !Array.isArray(value)
+            ?   [ value ]
+            :   value;
+
+            url.queryString.append(key, base, ...tail);
         }
 
         const resp = await this.#protocol.fetch(url.href);

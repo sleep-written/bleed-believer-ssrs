@@ -1,9 +1,4 @@
-export type QueryStringValue =
-    boolean |
-    number |
-    string |
-    Date |
-    null;
+import type { QueryStringValue } from './query-string-value.js';
 
 export class QueryString {
     static #datePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
