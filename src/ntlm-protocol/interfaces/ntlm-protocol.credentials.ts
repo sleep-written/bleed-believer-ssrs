@@ -1,4 +1,4 @@
-export interface NTLMCredentials {
+export interface NTLMProtocolCredentials {
     workstation?: string;
     domain?: string;
 

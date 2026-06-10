@@ -1,1 +1,0 @@
-export type { NTLMCredentials } from './ntlm.credentials.js';

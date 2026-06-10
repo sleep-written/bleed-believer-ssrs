@@ -1,13 +1,11 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
-        "sourceMap": false
+        "sourceMap": false,
+        "declaration": true
     },
     "exclude": [
-        // Ignore testing files
-        "src/**/*.fake.ts",
-        "src/**/*.mock.ts",
-        "src/**/*.stub.ts",
-        "src/**/*.test.ts"
+        "./src/**/*.fake.ts",
+        "./src/**/*.test.ts"
     ]
 }
