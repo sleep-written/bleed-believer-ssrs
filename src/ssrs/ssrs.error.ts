@@ -1,35 +1,36 @@
-import { JSDOM } from 'jsdom';
+import { unescapeHtml } from './ssrs.unescape-html.js';
+import { escapeHtml } from './ssrs.escape-html.js';
+
+const LIST_ITEM_PATTERN = /<li\b[^>]*>([\s\S]*?)<\/li>/i;
+const ANCHOR_PATTERN = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>[\s\S]*?<\/a>/i;
+const TAG_PATTERN = /<[^>]+>/g;
 
 export class SSRSError extends Error {
     static parse(input: string): SSRSError {
-        try {
-            const html = new JSDOM(input, { contentType: 'text/html',  });
-            const item = html.window.document.querySelector('ul li');
-            if (!item) {
-                throw new Error();
-            }
-
-            const a = item.querySelector('a');
-            a?.remove();
-
-            const text = item.textContent ?? input;
-            const fail = new SSRSError(text.trim());
-
-            if (a) {
-                fail.#href = a.href;
-            }
-
-            return fail;
-        } catch {
+        const item = input.match(LIST_ITEM_PATTERN)?.[1];
+        if (item == null) {
             return new SSRSError(input.trim());
         }
+
+        const anchor = item.match(ANCHOR_PATTERN);
+        const text = item
+            .replace(ANCHOR_PATTERN, ' ')
+            .replace(TAG_PATTERN, ' ');
+
+        const message = unescapeHtml(text).replace(/\s+/g, ' ').trim();
+        const fail = new SSRSError(message);
+
+        const href = anchor?.[1] ?? anchor?.[2];
+        if (href) {
+            fail.#href = href;
+        }
+
+        return fail;
     }
 
     #href = '#';
 
-    constructor(message: string, options?: ErrorOptions) {
-        super(message, options);
-    }
+    name = 'SSRSError';
 
     toHtml(): string {
         return [
@@ -55,8 +56,8 @@ export class SSRSError extends Error {
             `        <h1>Error de Reporting Services<hr width="100%" size="1" color="silver"></h1>`,
             `        <ul>`,
             `            <li>`,
-            `                ${this.message}`,
-            `                <a href="${this.#href}" target="_blank">Get on-screen help</a>`,
+            `                ${escapeHtml(this.message)}`,
+            `                <a href="${escapeHtml(this.#href)}" target="_blank">Get on-screen help</a>`,
             `            </li>`,
             `        </ul>`,
             `        <hr width="100%" size="1" color="silver">`,

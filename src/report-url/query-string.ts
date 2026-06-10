@@ -1,6 +1,7 @@
 import type { QueryStringValue } from './query-string-value.js';
 
 export class QueryString {
+    static #numberPattern = /^-?(0|[1-9]\d*)(\.\d*[1-9])?$/;
     static #datePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
     static #parseValue(decoded: string): QueryStringValue {
@@ -14,10 +15,23 @@ export class QueryString {
         if (decoded === 'true')  return true;
         if (decoded === 'false') return false;
 
-        const num = Number(decoded);
-        if (decoded !== '' && !isNaN(num)) return num;
+        // Strict on purpose: Number() would also coerce "007", "1e5" or
+        // "Infinity", silently changing the value on a parse → toString
+        // round-trip.
+        if (QueryString.#numberPattern.test(decoded)) {
+            return Number(decoded);
+        }
 
         return decoded;
+    }
+
+    static #decode(input: string): string {
+        const text = input.replace(/\+/g, ' ');
+        try {
+            return decodeURIComponent(text);
+        } catch {
+            return text;
+        }
     }
 
     static parse(input: string): QueryString {
@@ -28,12 +42,16 @@ export class QueryString {
         }
 
         for (const part of raw.split('&')) {
+            if (!part) {
+                continue;
+            }
+
             const eqIdx = part.indexOf('=');
             if (eqIdx === -1) {
-                qs.append(decodeURIComponent(part), null);
+                qs.append(QueryString.#decode(part), null);
             } else {
-                const name  = decodeURIComponent(part.slice(0, eqIdx));
-                const value = QueryString.#parseValue(decodeURIComponent(part.slice(eqIdx + 1)));
+                const name  = QueryString.#decode(part.slice(0, eqIdx));
+                const value = QueryString.#parseValue(QueryString.#decode(part.slice(eqIdx + 1)));
                 qs.append(name, value);
             }
         }
@@ -55,6 +73,12 @@ export class QueryString {
         }
 
         this.#data.set(name, foundValues);
+        return this;
+    }
+
+    prepend(name: string, ...values: [ QueryStringValue, ...QueryStringValue[] ]): QueryString {
+        const entries = [...this.#data].filter(([ key ]) => key !== name);
+        this.#data = new Map([ [ name, [ ...values ] ], ...entries ]);
         return this;
     }
 
@@ -84,13 +108,13 @@ export class QueryString {
                     (value.getMonth() + 1)  .toString().padStart(2, '0'),
                     value.getDate()         .toString().padStart(2, '0'),
                 ].join('-');
-    
+
                 const time = [
                     value.getHours()    .toString().padStart(2, '0'),
                     value.getMinutes()  .toString().padStart(2, '0'),
                     value.getSeconds()  .toString().padStart(2, '0'),
                 ].join(':');
-    
+
                 return encodeURIComponent(`${date}T${time}`);
             }
 

@@ -101,3 +101,57 @@ describe('QueryString.parse', () => {
         t.assert.strictEqual(queryString.toString(), '?%2Fcontr-venta&desde=2026-06-01T00%3A00%3A00&hasta=2026-06-08T00%3A00%3A00');
     });
 });
+describe('QueryString.parse (value strictness)', () => {
+    it('Keeps "007" as string', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?v=007').get('v'), '007');
+        t.assert.strictEqual(QueryString.parse('?v=007').toString(), '?v=007');
+    });
+
+    it('Keeps "1e5" as string', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?v=1e5').get('v'), '1e5');
+    });
+
+    it('Keeps "Infinity" as string', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?v=Infinity').get('v'), 'Infinity');
+    });
+
+    it('Keeps "1.50" as string', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?v=1.50').get('v'), '1.50');
+    });
+
+    it('Parses "-3" as number', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?v=-3').get('v'), -3);
+    });
+
+    it('Decodes "+" as space', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?q=a+b').get('q'), 'a b');
+    });
+
+    it('Keeps malformed percent-encoding as-is instead of throwing', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?q=%E0%A4%A').get('q'), '%E0%A4%A');
+    });
+
+    it('Ignores empty parts', (t: it.TestContext) => {
+        t.assert.strictEqual(QueryString.parse('?a=1&&b=2').toString(), '?a=1&b=2');
+    });
+});
+
+describe('QueryString.prepend', () => {
+    it('Inserts the entry at the beginning', (t: it.TestContext) => {
+        const queryString = new QueryString();
+        queryString.set('a', 1);
+        queryString.set('b', 2);
+        queryString.prepend('path', null);
+
+        t.assert.strictEqual(queryString.toString(), '?path&a=1&b=2');
+    });
+
+    it('Moves an existing entry to the beginning', (t: it.TestContext) => {
+        const queryString = new QueryString();
+        queryString.set('a', 1);
+        queryString.set('path', null);
+        queryString.prepend('a', 9);
+
+        t.assert.strictEqual(queryString.toString(), '?a=9&path');
+    });
+});

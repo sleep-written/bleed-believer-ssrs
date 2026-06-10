@@ -1,4 +1,4 @@
-import { ok, strictEqual } from 'node:assert';
+import { deepStrictEqual, ok, strictEqual } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { buildType3 } from './ntlm.type3.js';
@@ -40,5 +40,19 @@ describe('buildType3', () => {
         const domainOff = msg.readUInt32LE(32);
         const domainStr = msg.subarray(domainOff, domainOff + domainLen).toString('utf16le');
         strictEqual(domainStr, 'Domain');
+    });
+
+    it('should use the MsvAvTimestamp from target info in the blob', () => {
+        const ts = Buffer.from([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]);
+        const targetInfo = Buffer.concat([
+            Buffer.from([0x07, 0x00, 0x08, 0x00]),
+            ts,
+            Buffer.alloc(4),
+        ]);
+
+        const msg = buildType3(credentials, { ...type2, targetInfo });
+        const ntOff = msg.readUInt32LE(24);
+        const blobTimestamp = Buffer.from(msg.subarray(ntOff + 24, ntOff + 32));
+        deepStrictEqual(blobTimestamp, ts);
     });
 });

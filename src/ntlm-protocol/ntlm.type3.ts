@@ -3,6 +3,7 @@ import type { NTLMType2Data } from './interfaces/ntlm.type2-data.js';
 
 import { createHmac, randomBytes } from 'node:crypto';
 
+import { findAvTimestamp } from './ntlm.av-timestamp.js';
 import { encodeUTF16LE } from './ntlm.encode-utf16le.js';
 import { md4 } from './ntlm.md4.js';
 
@@ -32,9 +33,15 @@ export function buildType3(credentials: NTLMProtocolCredentials, type2: NTLMType
         .digest();
 
     const clientChallenge = randomBytes(8);
-    const filetime = (BigInt(Date.now()) + EPOCH_DIFF_MS) * 10000n;
-    const timestamp = Buffer.alloc(8);
-    timestamp.writeBigUInt64LE(filetime);
+
+    // Prefer the server's MsvAvTimestamp: clock skew between client and DC
+    // can make the server reject a locally generated filetime.
+    let timestamp = findAvTimestamp(type2.targetInfo);
+    if (!timestamp) {
+        const filetime = (BigInt(Date.now()) + EPOCH_DIFF_MS) * 10000n;
+        timestamp = Buffer.alloc(8);
+        timestamp.writeBigUInt64LE(filetime);
+    }
 
     const blobHeader = Buffer.concat([
         Buffer.from([0x01, 0x01, 0x00, 0x00]),

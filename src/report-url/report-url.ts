@@ -3,7 +3,7 @@ import { QueryString } from './query-string.js';
 export class ReportURL {
     #url: URL;
     get href(): string {
-        return this.#url.href + this.#queryString.toString();
+        return this.#url.href + this.#queryString.toString() + this.#hash;
     }
 
     get host(): string {
@@ -26,6 +26,11 @@ export class ReportURL {
         return this.#url.protocol;
     }
 
+    #hash: string;
+    get hash(): string {
+        return this.#hash;
+    }
+
     #queryString: QueryString;
     get queryString(): QueryString {
         return this.#queryString;
@@ -34,7 +39,9 @@ export class ReportURL {
     constructor(input: string | URL) {
         this.#url = new URL(input);
         this.#queryString = QueryString.parse(this.#url.search);
+        this.#hash = this.#url.hash;
         this.#url.search = '';
+        this.#url.hash = '';
     }
 
     toURL(): URL {

@@ -41,7 +41,7 @@ describe('parseType2', () => {
     });
 
     it('should throw on invalid signature', () => {
-        const bad = Buffer.from('BAD_DATA_XXXXXXXX');
+        const bad = Buffer.from('BAD_DATA_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
         throws(() => parseType2(bad), /Invalid NTLM signature/);
     });
 
@@ -49,5 +49,28 @@ describe('parseType2', () => {
         const buf = makeType2Buffer(challenge, info, flags);
         buf.writeUInt32LE(1, 8);
         throws(() => parseType2(buf), /Expected NTLM Type 2 message/);
+    });
+
+    it('should throw a clear error on truncated messages', () => {
+        const buf = makeType2Buffer(challenge, info, flags).subarray(0, 16);
+        throws(() => parseType2(Buffer.from(buf)), /too short/);
+    });
+
+    it('should accept a minimal 32-byte message without target info', () => {
+        const buf = Buffer.alloc(32);
+        Buffer.from('NTLMSSP\0').copy(buf, 0);
+        buf.writeUInt32LE(2, 8);
+        buf.writeUInt32LE(flags, 20);
+        challenge.copy(buf, 24);
+
+        const data = parseType2(buf);
+        deepStrictEqual(data.serverChallenge, challenge);
+        strictEqual(data.targetInfo.length, 0);
+    });
+
+    it('should throw when target info exceeds message bounds', () => {
+        const buf = makeType2Buffer(challenge, info, flags);
+        buf.writeUInt16LE(500, 40);
+        throws(() => parseType2(buf), /exceeds message bounds/);
     });
 });

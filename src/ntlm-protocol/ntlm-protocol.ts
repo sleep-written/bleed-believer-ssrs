@@ -4,90 +4,64 @@ import type { NTLMProtocolInject } from './interfaces/ntlm-protocol.inject.js';
 import https from 'node:https';
 import http from 'node:http';
 
+import { buildResponse } from './ntlm.build-response.js';
+import { normalizeBody } from './ntlm.normalize-body.js';
 import { buildType3 } from './ntlm.type3.js';
 import { buildType1 } from './ntlm.type1.js';
 import { parseType2 } from './ntlm.type2.js';
 
-interface NTLMAgents {
-    http: http.Agent;
-    https: https.Agent;
+type NTLMHttpRequest = NonNullable<NTLMProtocolInject['httpRequest']>;
+
+interface NTLMRequestInit {
+    method: string;
+    headers: Record<string, string>;
+    body?: Buffer;
 }
 
 export class NTLMProtocol {
-    static #makeHttpRequest(
-        agents: NTLMAgents,
-        url: URL,
-        method: string,
-        headers: Record<string, string>
-    ): Promise<Response> {
+    #credentials: NTLMProtocolCredentials;
+    #injected: NTLMProtocolInject;
+
+    constructor(credentials: NTLMProtocolCredentials, inject?: NTLMProtocolInject) {
+        this.#credentials = credentials;
+        this.#injected = {
+            httpRequest: inject?.httpRequest?.bind(inject),
+        };
+    }
+
+    #makeHttpRequest(agent: http.Agent, url: URL, init: NTLMRequestInit): Promise<Response> {
         return new Promise((resolve, reject) => {
             const opts = {
                 hostname: url.hostname,
                 port: url.port || (url.protocol === 'https:' ? 443 : 80),
                 path: url.pathname + url.search,
-                method,
-                headers,
+                method: init.method,
+                headers: init.headers,
+                agent,
             };
 
-            let req: http.ClientRequest;
-            if (url.protocol === 'https:') {
-                req = https.request({ ...opts, agent: agents.https }, onResponse);
-            } else {
-                req = http.request({ ...opts, agent: agents.http }, onResponse);
-            }
-
-            function onResponse(res: http.IncomingMessage) {
+            function onResponse(res: http.IncomingMessage): void {
                 const chunks: Buffer[] = [];
                 res.on('data', (chunk: Buffer) => chunks.push(chunk));
                 res.on('end', () => {
-                    const body = Buffer.concat(chunks);
-                    const hdrs: Record<string, string> = {};
-                    for (const [k, v] of Object.entries(res.headers)) {
-                        if (v !== undefined) {
-                            hdrs[k] = Array.isArray(v) ? v.join(', ') : v;
-                        }
-                    }
-                    resolve(new Response(body, { status: res.statusCode ?? 0, headers: hdrs }));
+                    resolve(buildResponse(res.statusCode, res.headers, Buffer.concat(chunks)));
                 });
                 res.on('error', reject);
             }
 
+            const req = url.protocol === 'https:'
+            ?   https.request(opts, onResponse)
+            :   http.request(opts, onResponse);
+
             req.on('error', reject);
-            req.end();
+            req.end(init.body);
         });
     }
 
-    #credentials: NTLMProtocolCredentials;
-    #injected: Required<NTLMProtocolInject>;
+    async #handshake(request: NTLMHttpRequest, url: URL, init: NTLMRequestInit): Promise<Response> {
+        const { method, headers, body } = init;
 
-    constructor(credentials: NTLMProtocolCredentials, inject?: NTLMProtocolInject) {
-        this.#credentials = credentials;
-        const agents: NTLMAgents = {
-            http: new http.Agent({ keepAlive: true }),
-            https: new https.Agent({ keepAlive: true }),
-        };
-        this.#injected = {
-            httpRequest: inject?.httpRequest?.bind(inject) ??
-                ((url, method, headers) => NTLMProtocol.#makeHttpRequest(agents, url, method, headers)),
-        };
-    }
-
-    async fetch(input: string | URL, init?: RequestInit): Promise<Response> {
-        const url = new URL(input.toString());
-        const method = (init?.method ?? 'GET').toUpperCase();
-        const baseHeaders: Record<string, string> = { Connection: 'keep-alive' };
-
-        if (init?.headers) {
-            if (init.headers instanceof Headers) {
-                init.headers.forEach((v, k) => { baseHeaders[k] = v; });
-            } else if (Array.isArray(init.headers)) {
-                for (const [k, v] of init.headers) { baseHeaders[k] = v; }
-            } else {
-                Object.assign(baseHeaders, init.headers);
-            }
-        }
-
-        const r1 = await this.#injected.httpRequest(url, method, baseHeaders);
+        const r1 = await request(url, method, headers, body);
         if (r1.status !== 401) {
             return r1;
         }
@@ -98,10 +72,10 @@ export class NTLMProtocol {
         }
 
         const type1 = buildType1();
-        const r2 = await this.#injected.httpRequest(url, method, {
-            ...baseHeaders,
+        const r2 = await request(url, method, {
+            ...headers,
             Authorization: `NTLM ${type1.toString('base64')}`,
-        });
+        }, body);
 
         if (r2.status !== 401) {
             return r2;
@@ -116,9 +90,48 @@ export class NTLMProtocol {
         const type2 = parseType2(Buffer.from(ntlmToken, 'base64'));
         const type3 = buildType3(this.#credentials, type2);
 
-        return this.#injected.httpRequest(url, method, {
-            ...baseHeaders,
+        return request(url, method, {
+            ...headers,
             Authorization: `NTLM ${type3.toString('base64')}`,
-        });
+        }, body);
+    }
+
+    async fetch(input: string | URL, init?: RequestInit): Promise<Response> {
+        const url = new URL(input.toString());
+        const method = (init?.method ?? 'GET').toUpperCase();
+        const body = normalizeBody(init?.body);
+        const headers: Record<string, string> = { Connection: 'keep-alive' };
+
+        if (init?.headers) {
+            if (init.headers instanceof Headers) {
+                init.headers.forEach((v, k) => { headers[k] = v; });
+            } else if (Array.isArray(init.headers)) {
+                for (const [k, v] of init.headers) { headers[k] = v; }
+            } else {
+                Object.assign(headers, init.headers);
+            }
+        }
+
+        const requestInit: NTLMRequestInit = { method, headers, body };
+        const injected = this.#injected.httpRequest;
+        if (injected) {
+            return this.#handshake(injected, url, requestInit);
+        }
+
+        // One dedicated agent per call: NTLM authenticates the TCP connection,
+        // so the whole handshake must stay on a single socket; destroying the
+        // agent afterwards guarantees nothing is left open between calls.
+        const agent = url.protocol === 'https:'
+        ?   new https.Agent({ keepAlive: true, maxSockets: 1 })
+        :   new http.Agent({ keepAlive: true, maxSockets: 1 });
+
+        try {
+            const request: NTLMHttpRequest = (u, m, h, b) =>
+                this.#makeHttpRequest(agent, u, { method: m, headers: h, body: b });
+
+            return await this.#handshake(request, url, requestInit);
+        } finally {
+            agent.destroy();
+        }
     }
 }
