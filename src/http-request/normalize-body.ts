@@ -20,7 +20,7 @@ export function normalizeBody(body: RequestInit['body']): Buffer | undefined {
     }
 
     throw new TypeError(
-        'NTLMProtocol: unsupported body type; ' +
+        'httpRequest: unsupported body type; ' +
         'use string, Buffer, TypedArray, ArrayBuffer or URLSearchParams'
     );
 }

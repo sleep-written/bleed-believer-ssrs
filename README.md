@@ -71,6 +71,25 @@ Redirects are not followed.
 const resp = await ntlm.fetch('http://your-server/ReportServer?%2FReports%2FMyReport&rs:Format=PDF');
 ```
 
+### `BasicProtocol`
+
+HTTP Basic authentication, for servers configured with `RSWindowsBasic`. Same
+`fetch`-like contract and the same connection model as `NTLMProtocol` (one
+ephemeral connection per request, closed when the response arrives), but with a
+single request instead of a handshake. Use it only over HTTPS — Basic sends the
+credentials with every request, merely base64-encoded.
+
+```typescript
+import { BasicProtocol, SSRS } from '@bleed-believer/ssrs';
+
+const basic = new BasicProtocol({
+    username: 'administrator',
+    password: 'your-password'
+});
+
+const ssrs = new SSRS('https://your-server/ReportServer', basic);
+```
+
 ### `SSRS`
 
 Main class for interacting with the report server.

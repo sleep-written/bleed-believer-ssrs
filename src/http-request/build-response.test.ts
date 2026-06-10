@@ -1,7 +1,7 @@
 import { strictEqual } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { buildResponse } from './ntlm.build-response.js';
+import { buildResponse } from './build-response.js';
 
 describe('buildResponse', () => {
     it('should build a response with status, headers and body', async () => {

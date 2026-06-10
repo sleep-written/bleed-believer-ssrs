@@ -1,7 +1,7 @@
 import { deepStrictEqual, strictEqual, throws } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { normalizeBody } from './ntlm.normalize-body.js';
+import { normalizeBody } from './normalize-body.js';
 
 describe('normalizeBody', () => {
     it('should return undefined for null or undefined', () => {
