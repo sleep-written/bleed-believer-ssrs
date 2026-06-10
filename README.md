@@ -1,6 +1,6 @@
 # @bleed-believer/ssrs
 
-A TypeScript library for rendering reports from SQL Server Reporting Services (SSRS) using NTLM authentication. Zero runtime dependencies.
+A TypeScript library for rendering reports from SQL Server Reporting Services (SSRS) using NTLM or Basic authentication. Zero runtime dependencies.
 
 ## Installation
 

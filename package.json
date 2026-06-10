@@ -2,6 +2,29 @@
   "name": "@bleed-believer/ssrs",
   "type": "module",
   "version": "0.0.0",
+  "description": "Render reports from SQL Server Reporting Services (SSRS) using NTLM or Basic authentication. Zero runtime dependencies.",
+  "keywords": [
+    "ssrs",
+    "ntlm",
+    "ntlmv2",
+    "report",
+    "reporting-services",
+    "sql-server",
+    "url-access"
+  ],
+  "license": "MIT",
+  "author": "sleep-written",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sleep-written/bleed-believer-ssrs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sleep-written/bleed-believer-ssrs/issues"
+  },
+  "homepage": "https://github.com/sleep-written/bleed-believer-ssrs#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,7 +37,7 @@
     "build:clear": "rm -rf dist",
     "build:bleed": "bleed build --config ./tsconfig.build.json",
     "build:tscdf": "tsc -p tsconfig.build.json",
-    "build": "node --run build:clear; node --run build:bleed; node --run build:tscdf",
+    "build": "node --run build:clear && node --run build:bleed && node --run build:tscdf",
     "watch": "bleed build --config ./tsconfig.build.json --watch",
     "start": "bleed start ./src/index.ts --",
     "test": "node --import @bleed-believer/cli --test --"
